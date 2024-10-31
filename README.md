@@ -25,6 +25,6 @@ func main() {
 		},
 	}
 	test := helpers.DeepCopy(mySlice)
-	fmt.Println(test.([][][]string))
+	fmt.Println(test)
 }
 ```
