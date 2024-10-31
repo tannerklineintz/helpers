@@ -3,29 +3,23 @@ package helpers
 import (
 	"bytes"
 	"encoding/gob"
-	"reflect"
 )
 
 // DeepCopy returns a deep copy of specified object
-func DeepCopy(obj any) any {
+func DeepCopy[T any](obj T) T {
 	var buf bytes.Buffer
 	encoder := gob.NewEncoder(&buf)
 	if err := encoder.Encode(obj); err != nil {
-		return nil
+		var zero T
+		return zero
 	}
 
-	// Create a new zero value of the same type
-	objType := reflect.TypeOf(obj)
-	copyValue := reflect.New(objType).Interface()
-
+	var copy T
 	decoder := gob.NewDecoder(&buf)
-	if err := decoder.Decode(copyValue); err != nil {
-		return nil
+	if err := decoder.Decode(&copy); err != nil {
+		var zero T
+		return zero
 	}
 
-	// Dereference pointer if original object is not a pointer
-	if objType.Kind() != reflect.Ptr {
-		return reflect.ValueOf(copyValue).Elem().Interface()
-	}
-	return copyValue
+	return copy
 }
