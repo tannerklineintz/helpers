@@ -13,16 +13,20 @@ import (
 // DeepCopy returns a deep copy of the specified object, including unexported fields.
 func DeepCopy[T any](obj T) T {
 	val := reflect.ValueOf(obj)
+	valType := val.Type()
+	var result reflect.Value
 
-	// Ensure the value is addressable
-	if val.Kind() != reflect.Ptr {
-		valPtr := reflect.New(val.Type())
-		valPtr.Elem().Set(val)
-		val = valPtr
+	if val.Kind() == reflect.Ptr {
+		result = deepCopyValue(val)
+	} else {
+		// Create an addressable value for non-pointer types
+		addr := reflect.New(valType)
+		addr.Elem().Set(val)
+		result = deepCopyValue(addr)
+		result = result.Elem() // Dereference the pointer to get the value
 	}
 
-	copyVal := deepCopyValue(val)
-	return copyVal.Interface().(T)
+	return result.Interface().(T)
 }
 
 func deepCopyValue(src reflect.Value) reflect.Value {
@@ -36,13 +40,15 @@ func deepCopyValue(src reflect.Value) reflect.Value {
 		dstPtr := reflect.New(srcType.Elem())
 		dstPtr.Elem().Set(deepCopyValue(src.Elem()))
 		return dstPtr
+
 	case reflect.Interface:
 		if src.IsNil() {
 			return reflect.Zero(srcType)
 		}
 		srcElem := src.Elem()
 		dstElem := deepCopyValue(srcElem)
-		return dstElem
+		return dstElem.Convert(srcType)
+
 	case reflect.Struct:
 		dst := reflect.New(srcType).Elem()
 		for i := 0; i < src.NumField(); i++ {
@@ -51,13 +57,25 @@ func deepCopyValue(src reflect.Value) reflect.Value {
 
 			// Handle unexported fields
 			if !srcField.CanSet() {
-				srcField = reflect.NewAt(srcField.Type(), unsafe.Pointer(srcField.UnsafeAddr())).Elem()
-				dstField = reflect.NewAt(dstField.Type(), unsafe.Pointer(dstField.UnsafeAddr())).Elem()
+				if srcField.CanAddr() {
+					srcField = reflect.NewAt(srcField.Type(), unsafe.Pointer(srcField.UnsafeAddr())).Elem()
+				} else {
+					continue // Cannot address the field, skip it
+				}
+			}
+
+			if !dstField.CanSet() {
+				if dstField.CanAddr() {
+					dstField = reflect.NewAt(dstField.Type(), unsafe.Pointer(dstField.UnsafeAddr())).Elem()
+				} else {
+					continue // Cannot address the field, skip it
+				}
 			}
 
 			dstField.Set(deepCopyValue(srcField))
 		}
 		return dst
+
 	case reflect.Slice:
 		if src.IsNil() {
 			return reflect.Zero(srcType)
@@ -67,6 +85,7 @@ func deepCopyValue(src reflect.Value) reflect.Value {
 			dst.Index(i).Set(deepCopyValue(src.Index(i)))
 		}
 		return dst
+
 	case reflect.Map:
 		if src.IsNil() {
 			return reflect.Zero(srcType)
@@ -76,12 +95,14 @@ func deepCopyValue(src reflect.Value) reflect.Value {
 			dst.SetMapIndex(deepCopyValue(key), deepCopyValue(src.MapIndex(key)))
 		}
 		return dst
+
 	case reflect.Array:
 		dst := reflect.New(srcType).Elem()
 		for i := 0; i < src.Len(); i++ {
 			dst.Index(i).Set(deepCopyValue(src.Index(i)))
 		}
 		return dst
+
 	default:
 		return src
 	}
