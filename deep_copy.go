@@ -27,7 +27,7 @@ func DeepCopy[T any](obj T) T {
 	return copyVal
 }
 
-// DeepCopy returns a deep copy of specified object
+// DeepCopy returns a deep copy of specified object with only the exported values
 func DeepCopyExported[T any](obj T) T {
 	var buf bytes.Buffer
 	encoder := gob.NewEncoder(&buf)
