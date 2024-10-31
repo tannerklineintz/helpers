@@ -15,7 +15,7 @@ func DeepCopy(obj any) any {
 		log.Printf("%v", err.Error())
 		return nil
 	}
-	if err := decoder.Decode(copy); err != nil {
+	if err := decoder.Decode(&copy); err != nil {
 		log.Printf("%v", err.Error())
 		return nil
 	}
